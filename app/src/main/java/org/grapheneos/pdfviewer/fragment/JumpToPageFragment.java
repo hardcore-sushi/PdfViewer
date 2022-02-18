@@ -20,15 +20,12 @@ public class JumpToPageFragment extends DialogFragment {
     private final static String STATE_PICKER_MAX = "picker_max";
 
     private NumberPicker mPicker;
+    PdfViewer pdfViewer;
 
-    @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
-        if (savedInstanceState != null) {
-            mPicker.setMinValue(savedInstanceState.getInt(STATE_PICKER_MIN));
-            mPicker.setMaxValue(savedInstanceState.getInt(STATE_PICKER_MAX));
-            mPicker.setValue(savedInstanceState.getInt(STATE_PICKER_CUR));
-        }
+    public static JumpToPageFragment newInstance(PdfViewer pdfViewer) {
+        JumpToPageFragment f = new JumpToPageFragment();
+        f.pdfViewer = pdfViewer;
+        return f;
     }
 
     @NonNull
@@ -36,8 +33,8 @@ public class JumpToPageFragment extends DialogFragment {
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         mPicker = new NumberPicker(getActivity());
         mPicker.setMinValue(1);
-        mPicker.setMaxValue(((PdfViewer)requireActivity()).mNumPages);
-        mPicker.setValue(((PdfViewer)requireActivity()).mPage);
+        mPicker.setMaxValue(pdfViewer.mNumPages);
+        mPicker.setValue(pdfViewer.mPage);
 
         final FrameLayout layout = new FrameLayout(getActivity());
         layout.addView(mPicker, new FrameLayout.LayoutParams(
@@ -49,7 +46,7 @@ public class JumpToPageFragment extends DialogFragment {
                 .setView(layout)
                 .setPositiveButton(android.R.string.ok, (dialogInterface, i) -> {
                     mPicker.clearFocus();
-                    ((PdfViewer)requireActivity()).onJumpToPageInDocument(mPicker.getValue());
+                    pdfViewer.onJumpToPageInDocument(mPicker.getValue());
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .create();

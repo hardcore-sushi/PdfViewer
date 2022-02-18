@@ -1,10 +1,7 @@
 package org.grapheneos.pdfviewer.loader;
 
 import android.content.Context;
-import android.database.Cursor;
 import android.graphics.Typeface;
-import android.net.Uri;
-import android.provider.OpenableColumns;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.StyleSpan;
@@ -12,15 +9,14 @@ import android.util.Log;
 
 import androidx.loader.content.AsyncTaskLoader;
 
+import org.grapheneos.pdfviewer.R;
+import org.grapheneos.pdfviewer.Utils;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
-
-import org.grapheneos.pdfviewer.R;
-import org.grapheneos.pdfviewer.Utils;
 
 public class DocumentPropertiesLoader extends AsyncTaskLoader<List<CharSequence>> {
     public static final String TAG = "DocumentPropertiesLoader";
@@ -29,16 +25,17 @@ public class DocumentPropertiesLoader extends AsyncTaskLoader<List<CharSequence>
 
     private final String mProperties;
     private final int mNumPages;
-    private final Uri mUri;
 
-    private Cursor mCursor;
+    String fileName;
+    Long fileSize;
 
-    public DocumentPropertiesLoader(Context context, String properties, int numPages, Uri uri) {
+    public DocumentPropertiesLoader(Context context, String properties, int numPages, String fileName, Long fileSize) {
         super(context);
 
         mProperties = properties;
         mNumPages = numPages;
-        mUri = uri;
+        this.fileName = fileName;
+        this.fileSize = fileSize;
     }
 
     @Override
@@ -48,23 +45,8 @@ public class DocumentPropertiesLoader extends AsyncTaskLoader<List<CharSequence>
         final String[] names = context.getResources().getStringArray(R.array.property_names);
         final List<CharSequence> properties = new ArrayList<>(names.length);
 
-        mCursor = context.getContentResolver().query(mUri, null, null, null, null);
-        if (mCursor != null) {
-            mCursor.moveToFirst();
-
-            final int indexName = mCursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-            if (indexName >= 0) {
-                properties.add(getProperty(null, names[0], mCursor.getString(indexName)));
-            }
-
-            final int indexSize = mCursor.getColumnIndex(OpenableColumns.SIZE);
-            if (indexSize >= 0) {
-                final long fileSize = Long.parseLong(mCursor.getString(indexSize));
-                properties.add(getProperty(null, names[1], Utils.parseFileSize(fileSize)));
-            }
-
-            mCursor.close();
-        }
+        properties.add(getProperty(null, names[0], fileName));
+        properties.add(getProperty(null, names[1], Utils.parseFileSize(fileSize)));
 
         try {
             final JSONObject json = new JSONObject(mProperties);
@@ -89,9 +71,7 @@ public class DocumentPropertiesLoader extends AsyncTaskLoader<List<CharSequence>
 
     @Override
     public void deliverResult(List<CharSequence> properties) {
-        if (isReset()) {
-            onReleaseResources();
-        } else if (isStarted()) {
+        if (!isReset() && isStarted()) {
             super.deliverResult(properties);
         }
     }
@@ -107,25 +87,10 @@ public class DocumentPropertiesLoader extends AsyncTaskLoader<List<CharSequence>
     }
 
     @Override
-    public void onCanceled(List<CharSequence> properties) {
-        super.onCanceled(properties);
-
-        onReleaseResources();
-    }
-
-    @Override
     protected void onReset() {
         super.onReset();
 
         onStopLoading();
-        onReleaseResources();
-    }
-
-    private void onReleaseResources() {
-        if (mCursor != null) {
-            mCursor.close();
-            mCursor = null;
-        }
     }
 
     private CharSequence getProperty(final JSONObject json, String name, String specName) {

@@ -9,7 +9,7 @@ if (useKeystoreProperties) {
 }
 
 plugins {
-    id("com.android.application")
+    id("com.android.library")
     id("kotlin-android")
 }
 
@@ -29,21 +29,13 @@ android {
     buildToolsVersion = "32.0.0"
 
     defaultConfig {
-        applicationId = "org.grapheneos.pdfviewer"
-        minSdk = 26
+        minSdk = 21
         targetSdk = 31
-        versionCode = 10
-        versionName = versionCode.toString()
         resourceConfigurations.add("en")
     }
 
     buildTypes {
-        getByName("debug") {
-            applicationIdSuffix = ".debug"
-        }
-
         getByName("release") {
-            isShrinkResources = true
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (useKeystoreProperties) {
