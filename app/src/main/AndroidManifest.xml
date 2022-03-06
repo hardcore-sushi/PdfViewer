@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="org.grapheneos.pdfviewer"
         android:targetSandboxVersion="2">
+    <original-package android:name="org.grapheneos.pdfviewer" />
+
     <application>
         <meta-data android:name="android.webkit.WebView.MetricsOptOut"
                 android:value="true" />

@@ -1,16 +1,18 @@
 package org.grapheneos.pdfviewer;
 
-import android.content.Context;
+import android.content.pm.PackageInfo;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
-import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
@@ -22,11 +24,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.loader.app.LoaderManager;
 import androidx.loader.content.Loader;
 
+import org.grapheneos.pdfviewer.databinding.PdfviewerBinding;
 import org.grapheneos.pdfviewer.fragment.DocumentPropertiesFragment;
 import org.grapheneos.pdfviewer.fragment.JumpToPageFragment;
 import org.grapheneos.pdfviewer.loader.DocumentPropertiesLoader;
@@ -36,10 +39,11 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.List;
 
-public class PdfViewer extends WebView implements LoaderManager.LoaderCallbacks<List<CharSequence>> {
+public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequence>> {
     public static final String TAG = "PdfViewer";
 
     private static final String KEY_PROPERTIES = "properties";
+    private static final int MIN_WEBVIEW_RELEASE = 89;
 
     private static final String CONTENT_SECURITY_POLICY =
         "default-src 'none'; " +
@@ -93,31 +97,64 @@ public class PdfViewer extends WebView implements LoaderManager.LoaderCallbacks<
     private float mZoomRatio = 1f;
     private int mDocumentOrientationDegrees;
     private int mDocumentState;
-    private int windowInsetTop;
     private List<CharSequence> mDocumentProperties;
     private InputStream mInputStream;
 
+    private PdfviewerBinding binding;
     private TextView mTextView;
     private Toast mToast;
 
-    public AppCompatActivity activity;
+    AppCompatActivity activity;
     String fileName;
     Long fileSize;
 
-    void init(Context context) {
-        setBackgroundColor(Color.TRANSPARENT);
+    private class Channel {
+        @JavascriptInterface
+        public int getPage() {
+            return mPage;
+        }
+
+        @JavascriptInterface
+        public float getZoomRatio() {
+            return mZoomRatio;
+        }
+
+        @JavascriptInterface
+        public int getDocumentOrientationDegrees() {
+            return mDocumentOrientationDegrees;
+        }
+
+        @JavascriptInterface
+        public void setNumPages(int numPages) {
+            mNumPages = numPages;
+            activity.runOnUiThread(activity::invalidateOptionsMenu);
+        }
+
+        @JavascriptInterface
+        public void setDocumentProperties(final String properties) {
+            if (mDocumentProperties != null) {
+                throw new SecurityException("mDocumentProperties not null");
+            }
+
+            final Bundle args = new Bundle();
+            args.putString(KEY_PROPERTIES, properties);
+            activity.runOnUiThread(() -> LoaderManager.getInstance(PdfViewer.this.activity).restartLoader(DocumentPropertiesLoader.ID, args, PdfViewer.this));
+        }
+    }
+
+    public PdfViewer(@NonNull AppCompatActivity activity) {
+        this.activity = activity;
+        LayoutInflater inflater = activity.getLayoutInflater();
+        binding = PdfviewerBinding.inflate(inflater);
+        activity.setContentView(binding.getRoot());
+
+        binding.webview.setBackgroundColor(Color.TRANSPARENT);
 
         if (BuildConfig.DEBUG) {
             WebView.setWebContentsDebuggingEnabled(true);
         }
 
-        setOnApplyWindowInsetsListener((view, insets) -> {
-            windowInsetTop = insets.getSystemWindowInsetTop();
-            evaluateJavascript("updateInset()", null);
-            return insets;
-        });
-
-        final WebSettings settings = getSettings();
+        final WebSettings settings = binding.webview.getSettings();
         settings.setAllowContentAccess(false);
         settings.setAllowFileAccess(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
@@ -125,12 +162,12 @@ public class PdfViewer extends WebView implements LoaderManager.LoaderCallbacks<
 
         CookieManager.getInstance().setAcceptCookie(false);
 
-        addJavascriptInterface(new Channel(), "channel");
+        binding.webview.addJavascriptInterface(new Channel(), "channel");
 
-        setWebViewClient(new WebViewClient() {
+        binding.webview.setWebViewClient(new WebViewClient() {
             private WebResourceResponse fromAsset(final String mime, final String path) {
                 try {
-                    InputStream inputStream = context.getAssets().open(path.substring(1));
+                    InputStream inputStream = activity.getAssets().open(path.substring(1));
                     return new WebResourceResponse(mime, null, inputStream);
                 } catch (IOException e) {
                     return null;
@@ -188,7 +225,7 @@ public class PdfViewer extends WebView implements LoaderManager.LoaderCallbacks<
             }
         });
 
-        GestureHelper.attach(context, this,
+        GestureHelper.attach(activity, binding.webview,
                 new GestureHelper.GestureListener() {
                     @Override
                     public void onZoomIn(float value) {
@@ -206,26 +243,11 @@ public class PdfViewer extends WebView implements LoaderManager.LoaderCallbacks<
                     }
                 });
 
-        mTextView = new TextView(context);
+        mTextView = new TextView(activity);
         mTextView.setBackgroundColor(Color.DKGRAY);
         mTextView.setTextColor(ColorStateList.valueOf(Color.WHITE));
         mTextView.setTextSize(18);
         mTextView.setPadding(PADDING, 0, PADDING, 0);
-    }
-
-    public PdfViewer(@NonNull Context context) {
-        super(context);
-        init(context);
-    }
-
-    public PdfViewer(@NonNull Context context, @Nullable AttributeSet attrs) {
-        super(context, attrs);
-        init(context);
-    }
-
-    public PdfViewer(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-        init(context);
     }
 
     public void onCreateOptionMenu(Menu menu) {
@@ -233,43 +255,26 @@ public class PdfViewer extends WebView implements LoaderManager.LoaderCallbacks<
         inflater.inflate(R.menu.pdf_viewer, menu);
     }
 
-    private class Channel {
-        @JavascriptInterface
-        public int getWindowInsetTop() {
-            return windowInsetTop;
-        }
-
-        @JavascriptInterface
-        public int getPage() {
-            return mPage;
-        }
-
-        @JavascriptInterface
-        public float getZoomRatio() {
-            return mZoomRatio;
-        }
-
-        @JavascriptInterface
-        public int getDocumentOrientationDegrees() {
-            return mDocumentOrientationDegrees;
-        }
-
-        @JavascriptInterface
-        public void setNumPages(int numPages) {
-            mNumPages = numPages;
-            activity.runOnUiThread(activity::invalidateOptionsMenu);
-        }
-
-        @JavascriptInterface
-        public void setDocumentProperties(final String properties) {
-            if (mDocumentProperties != null) {
-                throw new SecurityException("mDocumentProperties not null");
+    public void onResume() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // The user could have left the activity to update the WebView
+            activity.invalidateOptionsMenu();
+            if (getWebViewRelease() >= MIN_WEBVIEW_RELEASE) {
+                binding.webviewOutOfDateLayout.setVisibility(View.GONE);
+                binding.webview.setVisibility(View.VISIBLE);
+            } else {
+                binding.webview.setVisibility(View.GONE);
+                binding.webviewOutOfDateMessage.setText(activity.getString(R.string.webview_out_of_date_message, getWebViewRelease(), MIN_WEBVIEW_RELEASE));
+                binding.webviewOutOfDateLayout.setVisibility(View.VISIBLE);
             }
-
-            final Bundle args = new Bundle();
-            args.putString(KEY_PROPERTIES, properties);
-            activity.runOnUiThread(() -> LoaderManager.getInstance(PdfViewer.this.activity).restartLoader(DocumentPropertiesLoader.ID, args, PdfViewer.this));
         }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    private int getWebViewRelease() {
+        PackageInfo webViewPackage = WebView.getCurrentWebViewPackage();
+        String webViewVersionName = webViewPackage.versionName;
+        return Integer.parseInt(webViewVersionName.substring(0, webViewVersionName.indexOf(".")));
     }
 
     @NonNull
@@ -295,12 +300,12 @@ public class PdfViewer extends WebView implements LoaderManager.LoaderCallbacks<
         mInputStream = inputStream;
         this.fileName = fileName;
         this.fileSize = fileSize;
-        loadUrl("https://localhost/viewer.html");
+        binding.webview.loadUrl("https://localhost/viewer.html");
         activity.invalidateOptionsMenu();
     }
 
     private void renderPage(final int zoom) {
-        evaluateJavascript("onRenderPage(" + zoom + ")", null);
+        binding.webview.evaluateJavascript("onRenderPage(" + zoom + ")", null);
     }
 
     private void documentOrientationChanged(final int orientationDegreesOffset) {
