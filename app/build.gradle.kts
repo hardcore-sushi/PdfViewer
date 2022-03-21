@@ -37,7 +37,7 @@ android {
 
     defaultConfig {
         minSdk = 21
-        targetSdk = 31
+        targetSdk = 32
         resourceConfigurations.add("en")
     }
 

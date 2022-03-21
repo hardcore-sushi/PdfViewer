@@ -1,4 +1,4 @@
-package org.grapheneos.pdfviewer.loader;
+package app.grapheneos.pdfviewer.loader;
 
 import android.content.Context;
 import android.graphics.Typeface;
@@ -9,14 +9,15 @@ import android.util.Log;
 
 import androidx.loader.content.AsyncTaskLoader;
 
-import org.grapheneos.pdfviewer.R;
-import org.grapheneos.pdfviewer.Utils;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
+
+import app.grapheneos.pdfviewer.R;
+import app.grapheneos.pdfviewer.Utils;
 
 public class DocumentPropertiesLoader extends AsyncTaskLoader<List<CharSequence>> {
     public static final String TAG = "DocumentPropertiesLoader";

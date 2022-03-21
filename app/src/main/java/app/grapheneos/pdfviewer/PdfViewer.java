@@ -1,4 +1,4 @@
-package org.grapheneos.pdfviewer;
+package app.grapheneos.pdfviewer;
 
 import android.content.pm.PackageInfo;
 import android.content.res.ColorStateList;
@@ -29,10 +29,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.loader.app.LoaderManager;
 import androidx.loader.content.Loader;
 
-import org.grapheneos.pdfviewer.databinding.PdfviewerBinding;
-import org.grapheneos.pdfviewer.fragment.DocumentPropertiesFragment;
-import org.grapheneos.pdfviewer.fragment.JumpToPageFragment;
-import org.grapheneos.pdfviewer.loader.DocumentPropertiesLoader;
+import app.grapheneos.pdfviewer.databinding.PdfviewerBinding;
+import app.grapheneos.pdfviewer.fragment.DocumentPropertiesFragment;
+import app.grapheneos.pdfviewer.fragment.JumpToPageFragment;
+import app.grapheneos.pdfviewer.loader.DocumentPropertiesLoader;
 
 import java.io.IOException;
 import java.io.InputStream;
