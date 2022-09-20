@@ -2,6 +2,8 @@ package app.grapheneos.pdfviewer;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 
@@ -11,6 +13,7 @@ import android.view.View;
 
 class GestureHelper {
     public interface GestureListener {
+        boolean onTapUp();
         // Can be replaced with ratio when supported
         void onZoomIn(float value);
         void onZoomOut(float value);
@@ -19,6 +22,15 @@ class GestureHelper {
 
     @SuppressLint("ClickableViewAccessibility")
     static void attach(Context context, View gestureView, GestureListener listener) {
+
+        final GestureDetector detector = new GestureDetector(context,
+                new GestureDetector.SimpleOnGestureListener() {
+                    @Override
+                    public boolean onSingleTapUp(MotionEvent motionEvent) {
+                        return listener.onTapUp();
+                    }
+                });
+
         final ScaleGestureDetector scaleDetector = new ScaleGestureDetector(context,
                 new ScaleGestureDetector.SimpleOnScaleGestureListener() {
                     final float SPAN_RATIO = 600;
@@ -55,6 +67,7 @@ class GestureHelper {
                 });
 
         gestureView.setOnTouchListener((view, motionEvent) -> {
+            detector.onTouchEvent(motionEvent);
             scaleDetector.onTouchEvent(motionEvent);
             return false;
         });
