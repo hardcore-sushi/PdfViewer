@@ -31,6 +31,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.loader.app.LoaderManager;
 import androidx.loader.content.Loader;
 
@@ -40,7 +41,9 @@ import app.grapheneos.pdfviewer.databinding.PdfviewerBinding;
 import app.grapheneos.pdfviewer.fragment.DocumentPropertiesFragment;
 import app.grapheneos.pdfviewer.fragment.PasswordPromptFragment;
 import app.grapheneos.pdfviewer.fragment.JumpToPageFragment;
+import app.grapheneos.pdfviewer.ktx.ViewKt;
 import app.grapheneos.pdfviewer.loader.DocumentPropertiesLoader;
+import app.grapheneos.pdfviewer.viewModel.PasswordStatus;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -119,8 +122,8 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
     AppCompatActivity activity;
     String fileName;
     Long fileSize;
-    private Snackbar snackbar;
     private PasswordPromptFragment mPasswordPromptFragment;
+    public PasswordStatus passwordValidationViewModel;
 
     private class Channel {
         @JavascriptInterface
@@ -157,16 +160,23 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
 
         @JavascriptInterface
         public void showPasswordPrompt() {
-            if (getPasswordPromptFragment().isAdded()) {
-                getPasswordPromptFragment().dismiss();
+            if (!getPasswordPromptFragment().isAdded()) {
+                getPasswordPromptFragment().show(activity.getSupportFragmentManager(), PasswordPromptFragment.class.getName());
             }
-            getPasswordPromptFragment().show(activity.getSupportFragmentManager(), PasswordPromptFragment.class.getName());
+            passwordValidationViewModel.passwordMissing();
         }
 
         @JavascriptInterface
         public void invalidPassword() {
-            activity.runOnUiThread(PdfViewer.this::notifyInvalidPassword);
-            showPasswordPrompt();
+            activity.runOnUiThread(() -> passwordValidationViewModel.invalid());
+        }
+
+        @JavascriptInterface
+        public void onLoaded() {
+            passwordValidationViewModel.validated();
+            if (getPasswordPromptFragment().isAdded()) {
+                getPasswordPromptFragment().dismiss();
+            }
         }
 
         @JavascriptInterface
@@ -175,15 +185,12 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
         }
     }
 
-    private void notifyInvalidPassword() {
-        snackbar.setText(R.string.password_prompt_invalid_password).show();
-    }
-
     public PdfViewer(@NonNull AppCompatActivity activity) {
         this.activity = activity;
         binding = PdfviewerBinding.inflate(activity.getLayoutInflater());
         activity.setContentView(binding.getRoot());
         activity.setSupportActionBar(binding.toolbar);
+        passwordValidationViewModel = new ViewModelProvider(activity, ViewModelProvider.AndroidViewModelFactory.getInstance(activity.getApplication())).get(PasswordStatus.class);
 
         WindowCompat.setDecorFitsSystemWindows(activity.getWindow(), false);
 
@@ -283,8 +290,7 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
                     public boolean onTapUp() {
                         binding.webview.evaluateJavascript("isTextSelected()", selection -> {
                             if (!Boolean.parseBoolean(selection)) {
-                                if ((activity.getWindow().getDecorView().getSystemUiVisibility() &
-                                        View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
+                                if (activity.getSupportActionBar().isShowing()) {
                                     hideSystemUi();
                                 } else {
                                     showSystemUi();
@@ -315,8 +321,6 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
         mTextView.setTextColor(ColorStateList.valueOf(Color.WHITE));
         mTextView.setTextSize(18);
         mTextView.setPadding(PADDING, 0, PADDING, 0);
-
-        snackbar = Snackbar.make(binding.getRoot(), "", Snackbar.LENGTH_LONG);
     }
 
     public void onDestroy() {
@@ -456,21 +460,12 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
     }
 
     private void showSystemUi() {
-        activity.getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+        ViewKt.showSystemUi(binding.getRoot());
         activity.getSupportActionBar().show();
     }
 
     private void hideSystemUi() {
-        activity.getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
-                View.SYSTEM_UI_FLAG_FULLSCREEN |
-                View.SYSTEM_UI_FLAG_IMMERSIVE);
+        ViewKt.hideSystemUi(binding.getRoot());
         activity.getSupportActionBar().hide();
     }
 

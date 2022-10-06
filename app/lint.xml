@@ -1,7 +1,8 @@
 <lint>
-    <!-- full backups are desired -->
-    <issue id="AllowBackup">
-        <ignore path="src/main/AndroidManifest.xml"/>
+    <!-- overly aggressive check -->
+    <issue id="VectorPath">
+        <ignore path="src/main/res/drawable/ic_rotate_left_24dp.xml"/>
+        <ignore path="src/main/res/drawable/ic_rotate_right_24dp.xml"/>
     </issue>
 
     <!-- Google app indexing doesn't make any sense for this app -->
