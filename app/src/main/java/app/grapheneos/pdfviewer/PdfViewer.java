@@ -216,6 +216,7 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
         settings.setAllowFileAccess(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
         settings.setJavaScriptEnabled(true);
+        settings.setMinimumFontSize(1);
 
         CookieManager.getInstance().setAcceptCookie(false);
 
@@ -460,12 +461,12 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
     }
 
     private void showSystemUi() {
-        ViewKt.showSystemUi(binding.getRoot());
+        ViewKt.showSystemUi(binding.getRoot(), activity.getWindow());
         activity.getSupportActionBar().show();
     }
 
     private void hideSystemUi() {
-        ViewKt.hideSystemUi(binding.getRoot());
+        ViewKt.hideSystemUi(binding.getRoot(), activity.getWindow());
         activity.getSupportActionBar().hide();
     }
 
@@ -481,12 +482,12 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
         mToast.show();
     }
 
-    public void onCreateOptionMenu(Menu menu) {
+    public void onCreateOptionMenu(@NonNull Menu menu) {
         MenuInflater inflater = activity.getMenuInflater();
         inflater.inflate(R.menu.pdf_viewer, menu);
     }
 
-    public boolean onPrepareOptionsMenu(Menu menu) {
+    public boolean onPrepareOptionsMenu(@NonNull Menu menu) {
         final int[] ids = {R.id.action_jump_to_page, R.id.action_next, R.id.action_previous,
                 R.id.action_first, R.id.action_last, R.id.action_rotate_clockwise,
                 R.id.action_rotate_counterclockwise, R.id.action_view_document_properties};
