@@ -42,12 +42,14 @@ import app.grapheneos.pdfviewer.fragment.DocumentPropertiesFragment;
 import app.grapheneos.pdfviewer.fragment.PasswordPromptFragment;
 import app.grapheneos.pdfviewer.fragment.JumpToPageFragment;
 import app.grapheneos.pdfviewer.ktx.ViewKt;
-import app.grapheneos.pdfviewer.loader.DocumentPropertiesLoader;
+import app.grapheneos.pdfviewer.loader.DocumentPropertiesAsyncTaskLoader;
 import app.grapheneos.pdfviewer.viewModel.PasswordStatus;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
@@ -55,7 +57,7 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
     public static final String TAG = "PdfViewer";
 
     private static final String KEY_PROPERTIES = "properties";
-    private static final int MIN_WEBVIEW_RELEASE = 89;
+    private static final int MIN_WEBVIEW_RELEASE = 92;
 
     private static final String CONTENT_SECURITY_POLICY =
         "default-src 'none'; " +
@@ -98,7 +100,7 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
         "usb=(), " +
         "xr-spatial-tracking=()";
 
-    private static final float MIN_ZOOM_RATIO = 0.5f;
+    private static final float MIN_ZOOM_RATIO = 0.2f;
     private static final float MAX_ZOOM_RATIO = 1.5f;
     private static final int ALPHA_LOW = 130;
     private static final int ALPHA_HIGH = 255;
@@ -137,6 +139,21 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
         }
 
         @JavascriptInterface
+        public void setZoomRatio(final float ratio) {
+            mZoomRatio = Math.max(Math.min(ratio, MAX_ZOOM_RATIO), MIN_ZOOM_RATIO);
+        }
+
+        @JavascriptInterface
+        public float getMinZoomRatio() {
+            return MIN_ZOOM_RATIO;
+        }
+
+        @JavascriptInterface
+        public float getMaxZoomRatio() {
+            return MAX_ZOOM_RATIO;
+        }
+
+        @JavascriptInterface
         public int getDocumentOrientationDegrees() {
             return mDocumentOrientationDegrees;
         }
@@ -155,7 +172,7 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
 
             final Bundle args = new Bundle();
             args.putString(KEY_PROPERTIES, properties);
-            activity.runOnUiThread(() -> LoaderManager.getInstance(PdfViewer.this.activity).restartLoader(DocumentPropertiesLoader.ID, args, PdfViewer.this));
+            activity.runOnUiThread(() -> LoaderManager.getInstance(PdfViewer.this.activity).restartLoader(DocumentPropertiesAsyncTaskLoader.ID, args, PdfViewer.this));
         }
 
         @JavascriptInterface
@@ -354,6 +371,15 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
         return mPasswordPromptFragment;
     }
 
+    private void setToolbarTitleWithDocumentName() {
+        String documentName = getCurrentDocumentName();
+        if (documentName != null && !documentName.isEmpty()) {
+            activity.getSupportActionBar().setTitle(documentName);
+        } else {
+            activity.getSupportActionBar().setTitle(R.string.app_name);
+        }
+    }
+
     public void onResume() {
         // The user could have left the activity to update the WebView
         activity.invalidateOptionsMenu();
@@ -379,13 +405,14 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
     @NonNull
     @Override
     public Loader<List<CharSequence>> onCreateLoader(int id, Bundle args) {
-        return new DocumentPropertiesLoader(activity, args.getString(KEY_PROPERTIES), mNumPages, fileName, fileSize);
+        return new DocumentPropertiesAsyncTaskLoader(activity, args.getString(KEY_PROPERTIES), mNumPages, fileName, fileSize);
     }
 
     @Override
     public void onLoadFinished(@NonNull Loader<List<CharSequence>> loader, List<CharSequence> data) {
         mDocumentProperties = data;
-        LoaderManager.getInstance(activity).destroyLoader(DocumentPropertiesLoader.ID);
+        setToolbarTitleWithDocumentName();
+        LoaderManager.getInstance(activity).destroyLoader(DocumentPropertiesAsyncTaskLoader.ID);
     }
 
     @Override
@@ -485,12 +512,19 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
     public void onCreateOptionMenu(@NonNull Menu menu) {
         MenuInflater inflater = activity.getMenuInflater();
         inflater.inflate(R.menu.pdf_viewer, menu);
+        if (BuildConfig.DEBUG) {
+            inflater.inflate(R.menu.pdf_viewer_debug, menu);
+        }
     }
 
     public boolean onPrepareOptionsMenu(@NonNull Menu menu) {
-        final int[] ids = {R.id.action_jump_to_page, R.id.action_next, R.id.action_previous,
-                R.id.action_first, R.id.action_last, R.id.action_rotate_clockwise,
-                R.id.action_rotate_counterclockwise, R.id.action_view_document_properties};
+        final ArrayList<Integer> ids = new ArrayList<>(Arrays.asList(R.id.action_jump_to_page,
+                R.id.action_next, R.id.action_previous, R.id.action_first, R.id.action_last,
+                R.id.action_rotate_clockwise, R.id.action_rotate_counterclockwise,
+                R.id.action_view_document_properties));
+        if (BuildConfig.DEBUG) {
+            ids.add(R.id.debug_action_toggle_text_layer_visibility);
+        }
         if (mDocumentState < STATE_LOADED) {
             for (final int id : ids) {
                 final MenuItem item = menu.findItem(id);
@@ -540,10 +574,29 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
                 .show(activity.getSupportFragmentManager(), DocumentPropertiesFragment.TAG);
             return true;
         } else if (itemId == R.id.action_jump_to_page) {
-            JumpToPageFragment.newInstance(this)
+            new JumpToPageFragment(this)
                 .show(activity.getSupportFragmentManager(), JumpToPageFragment.TAG);
             return true;
+        } else if (itemId == R.id.debug_action_toggle_text_layer_visibility) {
+            binding.webview.evaluateJavascript("toggleTextLayerVisibility()", null);
+            return true;
         }
+
         return false;
+    }
+
+    private String getCurrentDocumentName() {
+        if (mDocumentProperties == null || mDocumentProperties.isEmpty()) return "";
+        String fileName = "";
+        String title = "";
+        for (CharSequence property : mDocumentProperties) {
+            if (property.toString().startsWith("File name:")) {
+                fileName = property.toString().replace("File name:", "");
+            }
+            if (property.toString().startsWith("Title:-")) {
+                title = property.toString().replace("Title:-", "");
+            }
+        }
+        return fileName.length() > 2 ? fileName : title;
     }
 }
