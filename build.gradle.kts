@@ -1,6 +1,6 @@
 plugins {
-    id("com.android.application") apply false
-    id("org.jetbrains.kotlin.android") apply false
+    id("com.android.application") version "8.4.0" apply false
+    id("org.jetbrains.kotlin.android") version "1.9.24" apply false
 }
 
 allprojects {
@@ -12,5 +12,5 @@ allprojects {
 }
 
 tasks.register("clean", Delete::class) {
-    delete(rootProject.buildDir)
+    delete(rootProject.layout.buildDirectory)
 }

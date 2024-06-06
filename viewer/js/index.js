@@ -1,6 +1,11 @@
-"use strict";
+import {
+    GlobalWorkerOptions,
+    PasswordResponses,
+    getDocument,
+    renderTextLayer,
+} from "pdfjs-dist";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.js";
+GlobalWorkerOptions.workerSrc = "/viewer/js/worker.js";
 
 let pdfDoc = null;
 let pageRendering = false;
@@ -139,7 +144,7 @@ function renderPage(pageNumber, zoom, prerender, prerenderTrigger=0) {
         }
 
         const newCanvas = document.createElement("canvas");
-        const ratio = window.devicePixelRatio;
+        const ratio = globalThis.devicePixelRatio;
         newCanvas.height = viewport.height * ratio;
         newCanvas.width = viewport.width * ratio;
         newCanvas.style.height = viewport.height + "px";
@@ -166,7 +171,7 @@ function renderPage(pageNumber, zoom, prerender, prerenderTrigger=0) {
             render();
 
             const newTextLayerDiv = textLayerDiv.cloneNode();
-            task = pdfjsLib.renderTextLayer({
+            task = renderTextLayer({
                 textContentSource: page.streamTextContent(),
                 container: newTextLayerDiv,
                 viewport: viewport
@@ -215,7 +220,7 @@ function renderPage(pageNumber, zoom, prerender, prerenderTrigger=0) {
     });
 }
 
-function onRenderPage(zoom) {
+globalThis.onRenderPage = function (zoom) {
     if (pageRendering) {
         if (newPageNumber === channel.getPage() && newZoomRatio === channel.getZoomRatio() &&
                 orientationDegrees === channel.getDocumentOrientationDegrees()) {
@@ -232,13 +237,13 @@ function onRenderPage(zoom) {
     } else {
         renderPage(channel.getPage(), zoom, false);
     }
-}
+};
 
-function isTextSelected() {
-    return window.getSelection().toString() !== "";
-}
+globalThis.isTextSelected = function () {
+    return globalThis.getSelection().toString() !== "";
+};
 
-function toggleTextLayerVisibility() {
+globalThis.toggleTextLayerVisibility = function () {
     let textLayerForeground = "red";
     let textLayerOpacity = 1;
     if (isTextLayerVisible) {
@@ -248,15 +253,15 @@ function toggleTextLayerVisibility() {
     document.documentElement.style.setProperty("--text-layer-foreground", textLayerForeground);
     document.documentElement.style.setProperty("--text-layer-opacity", textLayerOpacity.toString());
     isTextLayerVisible = !isTextLayerVisible;
-}
+};
 
-function loadDocument() {
+globalThis.loadDocument = function () {
     const pdfPassword = channel.getPassword();
-    const loadingTask = pdfjsLib.getDocument({ url: "https://localhost/placeholder.pdf", password: pdfPassword });
+    const loadingTask = getDocument({ url: "https://localhost/placeholder.pdf", password: pdfPassword });
     loadingTask.onPassword = (_, error) => {
-        if (error === pdfjsLib.PasswordResponses.NEED_PASSWORD) {
+        if (error === PasswordResponses.NEED_PASSWORD) {
             channel.showPasswordPrompt();
-        } else if (error === pdfjsLib.PasswordResponses.INCORRECT_PASSWORD) {
+        } else if (error === PasswordResponses.INCORRECT_PASSWORD) {
             channel.invalidPassword();
         }
     };
@@ -274,8 +279,8 @@ function loadDocument() {
     }, function (reason) {
         console.error(reason.name + ": " + reason.message);
     });
-}
+};
 
-window.onresize = () => {
+globalThis.onresize = () => {
     setLayerTransform(canvas.clientWidth, canvas.clientHeight, textLayerDiv);
 };

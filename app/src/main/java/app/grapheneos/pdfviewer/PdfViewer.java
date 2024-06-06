@@ -268,7 +268,7 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
                     return new WebResourceResponse("application/pdf", null, mInputStream);
                 }
 
-                if ("/viewer.html".equals(path)) {
+                if ("/viewer/index.html".equals(path)) {
                     final WebResourceResponse response = fromAsset("text/html", path);
                     HashMap<String, String> headers = new HashMap<>();
                     headers.put("Content-Security-Policy", CONTENT_SECURITY_POLICY);
@@ -278,11 +278,11 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
                     return response;
                 }
 
-                if ("/viewer.css".equals(path)) {
+                if ("/viewer/main.css".equals(path)) {
                     return fromAsset("text/css", path);
                 }
 
-                if ("/viewer.js".equals(path) || "/pdf.js".equals(path) || "/pdf.worker.js".equals(path)) {
+                if ("/viewer/js/index.js".equals(path) || "/viewer/js/worker.js".equals(path)) {
                     return fromAsset("application/javascript", path);
                 }
 
@@ -428,7 +428,7 @@ public class PdfViewer implements LoaderManager.LoaderCallbacks<List<CharSequenc
         this.fileSize = fileSize;
         showSystemUi();
         activity.invalidateOptionsMenu();
-        binding.webview.loadUrl("https://localhost/viewer.html");
+        binding.webview.loadUrl("https://localhost/viewer/index.html");
     }
 
     public void loadPdfWithPassword(final String password) {

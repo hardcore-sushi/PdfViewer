@@ -1,3 +1,4 @@
+import org.apache.tools.ant.taskdefs.condition.Os
 import java.util.Properties
 import java.io.FileInputStream
 
@@ -38,14 +39,13 @@ android {
         }
     }
 
-    compileSdk = 33
-    buildToolsVersion = "33.0.2"
+    compileSdk = 34
+    buildToolsVersion = "34.0.0"
 
     namespace = "app.grapheneos.pdfviewer"
 
     defaultConfig {
         minSdk = 21
-        targetSdk = 33
         resourceConfigurations.add("en")
     }
 
@@ -70,18 +70,37 @@ android {
             buildConfig = true
         }
     }
-
-    compileOptions {
-        sourceCompatibility(JavaVersion.VERSION_17)
-        targetCompatibility(JavaVersion.VERSION_17)
-    }
-
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
 }
 
 dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("com.google.android.material:material:1.9.0")
+    implementation("androidx.core:core:1.13.1")
+    implementation("com.google.android.material:material:1.12.0")
+}
+
+fun getCommand(command: String, winExt: String = "cmd"): String {
+    return if (Os.isFamily(Os.FAMILY_WINDOWS)) "$command.$winExt" else command
+}
+
+val npmSetup = tasks.register("npmSetup", Exec::class) {
+    workingDir = projectDir
+    commandLine(getCommand("npm"), "ci", "--ignore-scripts")
+}
+
+val processStatic = tasks.register("processStatic", Exec::class) {
+    workingDir = projectDir.parentFile
+    dependsOn(npmSetup)
+    commandLine(getCommand("node", "exe"), "process_static.js")
+}
+
+val cleanStatic = tasks.register("cleanStatic", Delete::class) {
+    delete("src/main/assets/viewer", "src/debug/assets/viewer")
+}
+
+tasks.preBuild {
+    dependsOn(processStatic)
+}
+
+tasks.clean {
+    dependsOn(cleanStatic)
 }
