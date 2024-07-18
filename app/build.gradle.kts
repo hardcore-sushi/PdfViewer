@@ -51,8 +51,6 @@ android {
 
     buildTypes {
         getByName("release") {
-            isMinifyEnabled = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (useKeystoreProperties) {
                 signingConfig = signingConfigs.getByName("release")
             }
